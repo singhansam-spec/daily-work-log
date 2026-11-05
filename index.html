@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일일 업무 보고서 작성기 (Daily Work Log)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for better visual balance */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen antialiased flex flex-col">
+
+    <!-- Header & App Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 text-white p-2.5 rounded-xl shadow-md shadow-brand-500/20">
+                    <i class="fa-solid fa-clipboard-check text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-none">Daily Work Log</h1>
+                    <p class="text-xs text-slate-500 mt-0.5">일일 업무 보고서 작성 및 관리</p>
+                </div>
+            </div>
+
+            <!-- Quick Global Actions -->
+            <div class="flex items-center space-x-2">
+                <button onclick="submitToGoogleSheet()" id="googleSubmitBtn" class="inline-flex items-center px-3.5 py-2 border border-emerald-500/30 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1.5 text-sm text-emerald-600"></i>
+                    구글 시트로 제출하기
+                </button>
+                <button onclick="copyFormattedText()" class="inline-flex items-center px-3.5 py-2 border border-brand-500/30 text-xs font-semibold rounded-lg text-brand-700 bg-brand-50 hover:bg-brand-100 transition shadow-sm">
+                    <i class="fa-regular fa-copy mr-1.5 text-sm"></i>
+                    보고서 복사
+                </button>
+                <button onclick="exportJSON()" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+                    <i class="fa-solid fa-download mr-1.5 text-xs text-slate-500"></i>
+                    백업 (JSON)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full space-y-6">
+
+        <!-- User Info & Date Controls Bar -->
+        <section class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1.5">
+                        <i class="fa-regular fa-calendar-check mr-1 text-brand-600"></i>보고 일자
+                    </label>
+                    <input type="date" id="logDate" onchange="saveMetadata()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-2.5 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1.5">
+                        <i class="fa-regular fa-user mr-1 text-brand-600"></i>작성자 (이름)
+                    </label>
+                    <input type="text" id="userName" placeholder="예: 박오스틴 과장" oninput="saveMetadata()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-2.5 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1.5">
+                        <i class="fa-solid fa-users-gear mr-1 text-brand-600"></i>소속 부서
+                    </label>
+                    <select id="department" onchange="saveMetadata()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-2.5 outline-none transition">
+                        <option value="품질관리1팀">품질관리1팀 (QC Team 1)</option>
+                        <option value="품질관리2팀">품질관리2팀 (QC Team 2)</option>
+                        <option value="품질보증팀">품질보증팀 (QA Team)</option>
+                        <option value="연구개발팀">연구개발팀 (R&D Team)</option>
+                        <option value="생산관리팀">생산관리팀 (Production)</option>
+                        <option value="기타">기타 부서</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Summary Cards -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">총 작성 업무</p>
+                    <h3 id="statTotal" class="text-2xl font-bold text-slate-900 mt-1">0개</h3>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-emerald-600">완료된 업무</p>
+                    <h3 id="statCompleted" class="text-2xl font-bold text-slate-900 mt-1">0개</h3>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-amber-600">진행 중 업무</p>
+                    <h3 id="statInProgress" class="text-2xl font-bold text-slate-900 mt-1">0개</h3>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                    <i class="fa-solid fa-spinner"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-brand-600">총 소요 시간</p>
+                    <h3 id="statHours" class="text-2xl font-bold text-slate-900 mt-1">0 시간</h3>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600">
+                    <i class="fa-regular fa-clock"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Grid: Left Form/List, Right Notes & Preview -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left Panel (8 cols): Task Entry & List -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- Task Form Card -->
+                <section class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                        <h2 class="text-base font-bold text-slate-900 flex items-center">
+                            <i class="fa-solid fa-plus-circle text-brand-600 mr-2"></i>
+                            <span id="formTitle">신규 업무 추가</span>
+                        </h2>
+                        <button id="cancelEditBtn" onclick="resetForm()" class="hidden text-xs text-slate-400 hover:text-slate-600">
+                            <i class="fa-solid fa-xmark mr-1"></i>취소
+                        </button>
+                    </div>
+
+                    <form id="taskForm" onsubmit="handleTaskSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="taskId">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                            <!-- Category -->
+                            <div class="md:col-span-4">
+                                <label class="block text-xs font-medium text-slate-600 mb-1">카테고리</label>
+                                <select id="taskCategory" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                                    <option value="루틴 업무">루틴 업무</option>
+                                    <option value="프로젝트">프로젝트</option>
+                                    <option value="트러블슈팅/이슈">트러블슈팅 / 이슈</option>
+                                    <option value="회의/논의">회의 / 논의</option>
+                                    <option value="교육/세미나">교육 / 세미나</option>
+                                    <option value="기타">기타</option>
+                                </select>
+                            </div>
+
+                            <!-- Task Title -->
+                            <div class="md:col-span-8">
+                                <label class="block text-xs font-medium text-slate-600 mb-1">업무명 (제목)</label>
+                                <input type="text" id="taskTitle" required placeholder="예: 텔미사르탄 불순물 LC-MS 시험법 검토" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">상세 내용 및 세부 성과</label>
+                            <textarea id="taskDesc" rows="2" placeholder="- SPE 고체상 추출 시험 진행&#10;- 표준품 수급 및 USP <621> 시스템 적합성 검토" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 outline-none resize-none"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <!-- Status -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">진행 상태</label>
+                                <select id="taskStatus" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                                    <option value="완료">완료 (Completed)</option>
+                                    <option value="진행중" selected>진행중 (In Progress)</option>
+                                    <option value="보류">보류 (Pending)</option>
+                                </select>
+                            </div>
+
+                            <!-- Priority -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">우선순위</label>
+                                <select id="taskPriority" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                                    <option value="상">상 (High)</option>
+                                    <option value="중" selected>중 (Medium)</option>
+                                    <option value="하">하 (Low)</option>
+                                </select>
+                            </div>
+
+                            <!-- Hours -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">소요 시간 (시간)</label>
+                                <input type="number" id="taskHours" step="0.5" min="0" max="24" value="1" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex justify-end">
+                            <button type="submit" id="submitBtn" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-500/20 transition flex items-center">
+                                <i class="fa-solid fa-floppy-disk mr-1.5"></i>
+                                업무 저장하기
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Tasks Filter & List -->
+                <section class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                        <h2 class="text-base font-bold text-slate-900 flex items-center">
+                            <i class="fa-solid fa-list text-slate-500 mr-2"></i>
+                            업무 목록
+                        </h2>
+
+                        <!-- Filters -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select id="filterCategory" onchange="renderTasks()" class="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-lg p-2 outline-none">
+                                <option value="ALL">전체 카테고리</option>
+                                <option value="루틴 업무">루틴 업무</option>
+                                <option value="프로젝트">프로젝트</option>
+                                <option value="트러블슈팅/이슈">트러블슈팅/이슈</option>
+                                <option value="회의/논의">회의/논의</option>
+                                <option value="기타">기타</option>
+                            </select>
+
+                            <select id="filterStatus" onchange="renderTasks()" class="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-lg p-2 outline-none">
+                                <option value="ALL">전체 상태</option>
+                                <option value="완료">완료</option>
+                                <option value="진행중">진행중</option>
+                                <option value="보류">보류</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Task List Body -->
+                    <div id="taskList" class="space-y-3">
+                        <!-- Dynamic Item Render -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Panel (4 cols): Blockers, Tomorrow's Plan & Output Preview -->
+            <div class="lg:col-span-4 space-y-6">
+
+                <!-- Issues & Blockers Card -->
+                <section class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+                    <h2 class="text-base font-bold text-slate-900 flex items-center">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-2"></i>
+                        특이사항 및 건의사항 (Blockers)
+                    </h2>
+                    <div>
+                        <textarea id="issueNotes" oninput="saveMetadata()" rows="3" placeholder="예: 시약 수급 지연으로 인한 시험법 검토 대기 중, 부서 간 업무 이관 재배정 필요 등" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-3 focus:ring-2 focus:ring-brand-500 outline-none resize-none"></textarea>
+                    </div>
+
+                    <h2 class="text-base font-bold text-slate-900 flex items-center pt-2">
+                        <i class="fa-solid fa-calendar-day text-brand-600 mr-2"></i>
+                        내일 예정 업무 (Tomorrow Plan)
+                    </h2>
+                    <div>
+                        <textarea id="tomorrowPlan" oninput="saveMetadata()" rows="3" placeholder="1. 텔미사르탄 표준품 수령 및 전처리 준비&#10;2. QC 1팀/2팀 야간 업무 밸런스 조정 모니터링" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-3 focus:ring-2 focus:ring-brand-500 outline-none resize-none"></textarea>
+                    </div>
+                </section>
+
+                <!-- Live Report Preview Modal / Card -->
+                <section class="bg-slate-900 text-slate-100 rounded-2xl p-5 shadow-md space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
+                            <i class="fa-solid fa-terminal mr-2 text-brand-400"></i>
+                            텍스트 템플릿 미리보기
+                        </h3>
+                        <button onclick="copyFormattedText()" class="text-xs text-brand-300 hover:text-white transition font-medium">
+                            <i class="fa-regular fa-copy mr-1"></i>복사
+                        </button>
+                    </div>
+
+                    <pre id="textPreview" class="bg-slate-950 p-3.5 rounded-xl text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto border border-slate-800">미리보기를 불러오는 중...</pre>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg" class="text-xs font-medium">알림 메세지</span>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Google Apps Script Web App Endpoint URL (/dev -> /exec)
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/a/macros/ekdp.com/s/AKfycbyYevG-ry65AcT8n00vbJRSi4EXcA4c8Q_Mb63Arcy3/exec";
+
+        // State Management
+        let tasks = [];
+        let editingId = null;
+
+        // Initialize App on DOM Load
+        // Submit All Report Data to Google Sheet Endpoint
+        async function submitToGoogleSheet() {
+            const reportDate = document.getElementById('logDate').value;
+            const userName = document.getElementById('userName').value.trim();
+            const department = document.getElementById('department').value;
+            const issues = document.getElementById('issueNotes').value.trim();
+            const tomorrowPlan = document.getElementById('tomorrowPlan').value.trim();
+
+            if (!userName) {
+                alert("작성자 이름을 먼저 입력해 주세요.");
+                document.getElementById('userName').focus();
+                return;
+            }
+
+            if (tasks.length === 0) {
+                if (!confirm("등록된 업무 항목이 없습니다. 특이사항 및 내일 계획만 구글 시트로 제출하시겠습니까?")) {
+                    return;
+                }
+            }
+
+            const btn = document.getElementById('googleSubmitBtn');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> 전송 중...`;
+
+            // Prepare Payload Object matching Google Apps Script structure
+            const payload = {
+                reportDate: reportDate,
+                userName: userName,
+                department: department,
+                issues: issues,
+                tomorrowPlan: tomorrowPlan,
+                tasks: tasks.map(t => ({
+                    category: t.category,
+                    content: t.title + (t.desc ? ` - ${t.desc}` : ''),
+                    status: t.status,
+                    priority: t.priority,
+                    duration: t.hours
+                }))
+            };
+
+            try {
+                // Send to Google Apps Script Web App
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors", // Required for cross-domain Google Apps Script requests
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                showToast("구글 시트로 일일 업무가 성공적으로 제출되었습니다!", "success");
+            } catch (error) {
+                console.error("Google Sheet submission error:", error);
+                showToast("전송 중 오류가 발생했습니다. 네트워크 상태를 확인하세요.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // Formatted Text Generation for Slack/Email/Messenger
+        function generateFormattedReport() {
+            const date = document.getElementById('logDate').value || '날짜 미지정';
+            const name = document.getElementById('userName').value || '작성자 미입력';
+            const dept = document.getElementById('department').value || '소속 미지정';
+            const issues = document.getElementById('issueNotes').value.trim();
+            const tomorrow = document.getElementById('tomorrowPlan').value.trim();
+
+            const totalHours = tasks.reduce((sum, t) => sum + (t.hours || 0), 0);
+
+            let text = `📋 [일일 업무 보고서]\n`;
+            text += `• 일자: ${date}\n`;
+            text += `• 작성자: ${name} (${dept})\n`;
+            text += `• 총 근무시간: ${totalHours.toFixed(1)}시간\n`;
+            text += `-------------------------------------------\n\n`;
+
+            text += `✅ [ 금일 업무 진행 내역 ]\n`;
+            if (tasks.length === 0) {
+                text += `(등록된 업무가 없습니다.)\n`;
+            } else {
+                tasks.forEach((t, index) => {
+                    text += `${index + 1}. [${t.category}] ${t.title} (${t.status} / ${t.hours}h)\n`;
+                    if (t.desc) {
+                        const indentedDesc = t.desc.split('\n').map(line => `   - ${line}`).join('\n');
+                        text += `${indentedDesc}\n`;
+                    }
+                });
+            }
+
+            if (issues) {
+                text += `\n⚠️ [ 특이사항 및 건의사항 ]\n${issues}\n`;
+            }
+
+            if (tomorrow) {
+                text += `\n📅 [ 내일 예정 업무 ]\n${tomorrow}\n`;
+            }
+
+            return text;
+        }
+
+        function updatePreview() {
+            const previewEl = document.getElementById('textPreview');
+            previewEl.textContent = generateFormattedReport();
+        }
+
+        // Copy Text to Clipboard (with fallback for iFrame compatibility)
+        function copyFormattedText() {
+            const content = generateFormattedReport();
+
+            try {
+                // Temporary textarea element for fallback copy
+                const textarea = document.createElement('textarea');
+                textarea.value = content;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                showToast("슬랙/메일용 텍스트가 복사되었습니다!");
+            } catch (err) {
+                showToast("복사에 실패했습니다. 수동으로 복사해주세요.", "error");
+            }
+        }
+
+        // JSON Export File Download
+        function exportJSON() {
+            const data = {
+                logDate: document.getElementById('logDate').value,
+                userName: document.getElementById('userName').value,
+                department: document.getElementById('department').value,
+                issueNotes: document.getElementById('issueNotes').value,
+                tomorrowPlan: document.getElementById('tomorrowPlan').value,
+                tasks: tasks
+            };
+
+            const jsonStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `WorkLog_${data.logDate || 'date'}_${data.userName || 'user'}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast("JSON 파일이 다운로드되었습니다.");
+        }
+
+        // Toast Helper
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // Utility: Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
